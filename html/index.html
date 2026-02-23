@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta charset="utf-8">
+<title>Anniversaire d’Anaïs 🐆</title>
+
+<style>
+body {
+  margin: 0;
+  font-family: 'Segoe UI', sans-serif;
+  background: #5a3a29;
+  display: flex;
+  justify-content: center;
+  padding: 30px 15px;
+}
+.container {
+  background: #fff8f3;
+  max-width: 500px;
+  width: 100%;
+  border-radius: 25px;
+  padding: 25px;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.25);
+  text-align: center;
+}
+h1 { margin-top: 0; font-size: 24px; }
+.photo {
+  width: 120px; height: 120px; border-radius: 50%;
+  object-fit: cover; border: 4px solid #5a3a29; margin-bottom: 15px;
+}
+.leopard-bar {
+  height: 12px; border-radius: 10px; margin: 15px 0;
+  background: repeating-linear-gradient(45deg,#b38b5d,#b38b5d 10px,#5a3a29 10px,#5a3a29 20px);
+}
+button {
+  width: 100%; padding: 14px; font-size: 16px;
+  border-radius: 15px; border: none; margin-top: 10px; cursor: pointer;
+}
+.add-btn { background: #fff; border: 2px solid #5a3a29; }
+.send-btn { background: #5a3a29; color: white; opacity: 0.6; }
+.send-btn.active { opacity: 1; }
+.file-list { text-align: left; font-size: 14px; margin-top: 15px; }
+.small { font-size: 12px; opacity: 0.85; margin-top: 8px; }
+pre {
+  text-align:left; white-space:pre-wrap; word-break:break-word;
+  background:#fff; border:1px solid #eee; padding:10px; border-radius:12px;
+  max-height: 160px; overflow:auto;
+}
+</style>
+</head>
+
+<body>
+<div class="container">
+
+<img src="ta-photo.jpg" class="photo" alt="Anaïs">
+
+<h1> 🐆 Anniversaire d’Anaïs 🐆</h1>
+<h2>​⭐​ 25 ans ​⭐​</h2>
+<div class="leopard-bar"></div>
+
+<p>Ne sois pas timide ma poule ! Ajoute tes photos & vidéos puis envoie tout d’un coup ✨</p>
+
+<input id="photoInput" type="file" accept="image/*" capture="environment" style="display:none">
+<input id="videoInput" type="file" accept="video/*" capture="environment" style="display:none">
+<input id="galleryInput" type="file" accept="image/*,video/*" multiple style="display:none">
+
+<button class="add-btn" onclick="document.getElementById('photoInput').click()">📷 Prendre une photo</button>
+<button class="add-btn" onclick="document.getElementById('videoInput').click()">🎥 Filmer une vidéo</button>
+<button class="add-btn" onclick="document.getElementById('galleryInput').click()">🖼️ Choisir dans ta galerie</button>
+
+<div class="small">GRRRRR hâte de voir tes tofs 🐆</div>
+
+<div id="preview" class="file-list"></div>
+
+<button id="sendBtn" class="send-btn" onclick="uploadAll()" disabled>​💛​ Envoyer</button>
+
+<div id="status" style="margin-top:10px;"></div>
+
+<pre id="debug" style="display:none;"></pre>
+
+</div>
+
+<script>
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzm5ob5ZwxQHoJPOFkQQiutKNqJLoIGtOGxvrXrQppVztD0ZMkDtqfgzDllWu5P997D-w/exec";
+
+let selectedFiles = [];
+
+document.getElementById("photoInput").addEventListener("change", handleFiles);
+document.getElementById("videoInput").addEventListener("change", handleFiles);
+document.getElementById("galleryInput").addEventListener("change", handleFiles);
+
+function handleFiles(e) {
+  const files = Array.from(e.target.files || []);
+  if (!files.length) return;
+  selectedFiles = selectedFiles.concat(files);
+  renderList();
+  e.target.value = "";
+}
+
+function renderList() {
+  const preview = document.getElementById("preview");
+  preview.innerHTML = "";
+  selectedFiles.forEach(file => {
+    const div = document.createElement("div");
+    div.textContent = `${file.type && file.type.startsWith("video") ? "🎥" : "📷"} ${file.name}`;
+    preview.appendChild(div);
+  });
+
+  const btn = document.getElementById("sendBtn");
+  if (selectedFiles.length > 0) {
+    btn.disabled = false;
+    btn.classList.add("active");
+  } else {
+    btn.disabled = true;
+    btn.classList.remove("active");
+  }
+}
+
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = reject;
+    reader.onload = () => resolve(String(reader.result).split(",")[1]);
+    reader.readAsDataURL(file);
+  });
+}
+
+// base64 standard -> web-safe
+function toWebSafeBase64(b64) {
+  return b64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+}
+
+async function uploadAll() {
+  if (!selectedFiles.length) return;
+
+  const statusEl = document.getElementById("status");
+  const debugEl = document.getElementById("debug");
+  const sendBtn = document.getElementById("sendBtn");
+
+  debugEl.style.display = "block";
+  debugEl.textContent = "";
+  statusEl.innerText = "Envoi en cours…";
+  sendBtn.disabled = true;
+
+  let uploaded = 0;
+  let failed = 0;
+
+  for (const file of selectedFiles) {
+    try {
+      const base64 = await fileToBase64(file);
+      const base64ws = toWebSafeBase64(base64);
+
+      const res = await fetch(SCRIPT_URL, {
+        method: "POST",
+        body: new URLSearchParams({
+          file: base64ws,
+          mime: file.type || "application/octet-stream",
+          name: file.name
+        })
+      });
+
+      const txt = await res.text();
+      debugEl.textContent += `--- ${file.name} ---\n${txt}\n\n`;
+
+      if (!txt.startsWith("OK")) throw new Error(txt);
+
+      uploaded++;
+    } catch (e) {
+      failed++;
+      debugEl.textContent += `--- ${file.name} ---\nERROR (client): ${String(e)}\n\n`;
+    }
+  }
+
+  statusEl.innerText = failed === 0
+    ? "✅ Tout est envoyé ! Merci 🐆"
+    : `⚠️ Envoyé : ${uploaded}/${selectedFiles.length}. Échecs : ${failed}.`;
+
+  selectedFiles = [];
+  renderList();
+}
+</script>
+</body>
+</html>
